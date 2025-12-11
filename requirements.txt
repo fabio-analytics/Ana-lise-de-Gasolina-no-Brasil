@@ -5,3 +5,5 @@ dash-bootstrap-templates
 gunicorn
 pandas
 plotly
+pyarrow
+fastparquet
