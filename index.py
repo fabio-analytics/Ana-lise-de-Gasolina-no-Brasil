@@ -68,8 +68,7 @@ app.layout = dbc.Container(children=[
                 dbc.CardBody([
                     dbc.Row([
                         dbc.Col([  
-                            # TITULO DO DASHBOARD
-                            html.Legend("JA ATUALIZOU")
+                            html.Legend("Dashboard Combustíveis (FINAL)")
                         ], sm=8),
                         dbc.Col([        
                             html.I(className='fa fa-filter', style={'font-size': '300%'})
@@ -78,12 +77,10 @@ app.layout = dbc.Container(children=[
                     dbc.Row([
                         dbc.Col([
                             ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
-                            # SEU NOME
                             html.Legend("Fábio Santana de Castro")
                         ])
                     ], style={'margin-top': '10px'}),
                     dbc.Row([
-                        # LINK DO SEU PORTFOLIO
                         dbc.Button("Meu Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank")
                     ], style={'margin-top': '10px'})
                 ])
@@ -240,10 +237,6 @@ app.layout = dbc.Container(children=[
                             tooltip={'always_visible':False, 'placement':'bottom'},
                         )
                     ], sm=12, md=10, style={'margin-top': '15px'}),
-                    
-                    # === ATENÇÃO: COMENTEI O INTERVALO AQUI PARA PARAR A ANIMAÇÃO ===
-                    # dcc.Interval(id='interval', interval=10000), 
-                    
                 ], className='g-1', style={'height': '20%', 'justify-content': 'center'})
                 
             ], style=tab_card)
@@ -254,7 +247,6 @@ app.layout = dbc.Container(children=[
 
 
 # ======== Callbacks ========== #
-# Maximos e minimos
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input('dataset', 'data'),
@@ -262,22 +254,15 @@ app.layout = dbc.Container(children=[
 )
 def func(data, toggle):
     template = template_theme1 if toggle else template_theme2
-
     dff = pd.DataFrame(data)
     max = dff.groupby(['ANO'])['VALOR REVENDA (R$/L)'].max()
     min = dff.groupby(['ANO'])['VALOR REVENDA (R$/L)'].min()
-
     final_df = pd.concat([max, min], axis=1)
     final_df.columns = ['Máximo', 'Mínimo']
-
     fig = px.line(final_df, x=final_df.index, y=final_df.columns, template=template)
-    
-    # updates
     fig.update_layout(main_config, height=150, xaxis_title=None, yaxis_title=None)
-
     return fig
 
-# Callback de barras horizontais
 @app.callback(
     [Output('regiaobar_graph', 'figure'),
     Output('estadobar_graph', 'figure')],
@@ -288,20 +273,16 @@ def func(data, toggle):
 )
 def graph1(data, ano, regiao, toggle):
     template = template_theme1 if toggle else template_theme2
-
     df = pd.DataFrame(data)
     df_filtered = df[df.ANO.isin([ano])]
-
     dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
     dff_estado = df_filtered.groupby(['ANO', 'ESTADO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
     dff_estado = dff_estado[dff_estado.REGIÃO.isin([regiao])]
-
     dff_regiao = dff_regiao.sort_values(by='VALOR REVENDA (R$/L)',ascending=True)
     dff_estado = dff_estado.sort_values(by='VALOR REVENDA (R$/L)',ascending=True)
-
     dff_regiao['VALOR REVENDA (R$/L)'] = dff_regiao['VALOR REVENDA (R$/L)'].round(decimals = 2)
     dff_estado['VALOR REVENDA (R$/L)'] = dff_estado['VALOR REVENDA (R$/L)'].round(decimals = 2)
-
+    
     fig1_text = [f'{x} - R${y}' for x,y in zip(dff_regiao.REGIÃO.unique(), dff_regiao['VALOR REVENDA (R$/L)'].unique())]
     fig2_text = [f'R${y} - {x}' for x,y in zip(dff_estado.ESTADO.unique(), dff_estado['VALOR REVENDA (R$/L)'].unique())]
 
@@ -316,7 +297,7 @@ def graph1(data, ano, regiao, toggle):
     ))
     fig2 = go.Figure(go.Bar(
         x=dff_estado['VALOR REVENDA (R$/L)'],
-        y=dff_estado['ESTADO'], # Corrigi para usar ESTADO no eixo Y, estava REGIÃO antes
+        y=dff_estado['ESTADO'], 
         orientation='h',
         text=fig2_text,
         textposition='auto',
@@ -324,19 +305,17 @@ def graph1(data, ano, regiao, toggle):
         insidetextfont=dict(family='Times', size=12)
     ))
     
-    # Aplicando temas
-    fig1.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, template=template)
-    fig2.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, template=template)
+    # === TRAVA DE ANIMAÇÃO ===
+    # O transition={'duration': 0} remove qualquer efeito de "deslizar"
+    fig1.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, template=template, transition={'duration': 0})
+    fig2.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, template=template, transition={'duration': 0})
     
-    # Removendo escalas para ficar limpo
     fig1.update_xaxes(showticklabels=False)
     fig1.update_yaxes(showticklabels=False)
     fig2.update_xaxes(showticklabels=False)
     fig2.update_yaxes(showticklabels=False)
-
     return fig1, fig2
 
-# Callback para o gráfico de Preço x Estado (Faltava no seu código)
 @app.callback(
     Output('animation_graph', 'figure'),
     [Input('dataset', 'data'),
@@ -347,13 +326,11 @@ def animation_graph(data, estados, toggle):
     template = template_theme1 if toggle else template_theme2
     df = pd.DataFrame(data)
     mask = df.ESTADO.isin(estados)
-    
+    # Adicionei transition 0 aqui também para garantir
     fig = px.line(df[mask], x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
-    fig.update_layout(main_config, height=400, xaxis_title=None)
-    
+    fig.update_layout(main_config, height=400, xaxis_title=None, transition={'duration': 0})
     return fig
 
-# Callback para Comparação Direta (Faltava no seu código)
 @app.callback(
     [Output('direct_comparison_graph', 'figure'),
      Output('desc_comparison', 'children')],
@@ -365,25 +342,20 @@ def animation_graph(data, estados, toggle):
 def direct_comparison(data, est1, est2, toggle):
     template = template_theme1 if toggle else template_theme2
     df = pd.DataFrame(data)
-    
     df1 = df[df.ESTADO == est1]
     df2 = df[df.ESTADO == est2]
     df_final = pd.concat([df1, df2])
-    
+    # Adicionei transition 0 aqui também
     fig = px.line(df_final, x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
-    fig.update_layout(main_config, height=400, xaxis_title=None)
-    
+    fig.update_layout(main_config, height=400, xaxis_title=None, transition={'duration': 0})
     val1 = df1['VALOR REVENDA (R$/L)'].iloc[-1]
     val2 = df2['VALOR REVENDA (R$/L)'].iloc[-1]
-    
     if val1 < val2:
         desc = f"{est1} é mais barato que {est2} atualmente."
     else:
         desc = f"{est2} é mais barato que {est1} atualmente."
-        
     return fig, desc
 
-# Indicators (Faltava no seu código, coloquei placeholders para não quebrar)
 @app.callback(
     [Output('card1_indicators', 'figure'),
      Output('card2_indicators', 'figure')],
@@ -392,8 +364,6 @@ def direct_comparison(data, est1, est2, toggle):
 )
 def indicators(data, toggle):
     template = template_theme1 if toggle else template_theme2
-    # Aqui entraria a lógica dos indicadores. 
-    # Coloquei figuras vazias com texto só para o código rodar sem erro.
     fig1 = go.Figure()
     fig1.update_layout(template=template, title="Indicador 1")
     fig2 = go.Figure()
