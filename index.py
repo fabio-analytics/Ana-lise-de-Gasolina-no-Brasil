@@ -16,17 +16,15 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4
 app = dash.Dash(__name__, external_stylesheets=[url_theme1, dbc_css])
 server = app.server
 
-# === TRAVAMENTO TOTAL DO MOUSE ===
-# staticPlot: True (Vira imagem)
-# hovermode: False (Desliga a linha que segue o mouse)
+# Configurações de travamento visual
 config_travada = {"staticPlot": True, "displayModeBar": False}
+tab_card = {'height': '100%'}
 main_config = {
-    "hovermode": False, # DESLIGUEI O EFEITO DE MOUSE AQUI
+    "hovermode": False, 
     "dragmode": False,
     "legend": {"yanchor":"top", "y":0.9, "xanchor":"left", "x":0.1, "title": {"text": None}, "font" :{"color":"white"}, "bgcolor": "rgba(0,0,0,0.5)"},
     "margin": {"l":0, "r":0, "t":10, "b":0}
 }
-tab_card = {'height': '100%'}
 
 # ===== Carregamento ====== #
 try:
@@ -45,14 +43,15 @@ val_regiao = regioes_disp[0] if len(regioes_disp) > 0 else ""
 val_est1 = estados_disp[0] if len(estados_disp) > 0 else ""
 val_est2 = estados_disp[1] if len(estados_disp) > 1 else ""
 
-# =========  Layout (Sem botão Play e Compacto) =========== #
+
+# =========  Layout =========== #
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
                     html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
-                    html.P("Modo Estátua (Sem Mouse)"), # TÍTULO NOVO
+                    html.P("Ordem Alfabética (Fixo)"), # Mudei o título para você confirmar
                     ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
                     dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
                 ])
@@ -99,13 +98,10 @@ app.layout = dbc.Container([
                 ])
             ], style=tab_card)
         ], md=4)
-    ], className='g-2 my-2'),
-    
-    # REMOVI O SLIDER E O BOTÃO PLAY PARA LIMPAR A TELA
+    ], className='g-2 my-2')
+], fluid=True, style={'min-height': '100vh'})
 
-], fluid=True, style={'min-height': '100vh'}) # Tenta ocupar a tela toda
-
-# ======== Callbacks (Sem alterações lógicas) ========== #
+# ======== Callbacks (MUDANÇA DE ORDEM AQUI) ========== #
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
@@ -129,8 +125,10 @@ def graph1(ano, regiao, toggle):
     if df_main.empty: return go.Figure(), go.Figure()
     
     df_filtered = df_main[df_main.ANO == str(ano)]
-    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
-    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
+    
+    # AQUI MUDOU: Ordena pelo NOME da região/estado, e não pelo preço.
+    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
+    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('ESTADO', ascending=False)
 
     fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
     fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
