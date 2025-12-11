@@ -69,7 +69,7 @@ app.layout = dbc.Container(children=[
                     dbc.Row([
                         dbc.Col([  
                             # TITULO DO DASHBOARD
-                            html.Legend("Dashboard de Combustíveis")
+                            html.Legend("JA ATUALIZOU")
                         ], sm=8),
                         dbc.Col([        
                             html.I(className='fa fa-filter', style={'font-size': '300%'})
