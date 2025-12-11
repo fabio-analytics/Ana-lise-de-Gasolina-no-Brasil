@@ -16,7 +16,6 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4
 app = dash.Dash(__name__, external_stylesheets=[url_theme1, dbc_css])
 server = app.server
 
-# Configurações de travamento visual
 config_travada = {"staticPlot": True, "displayModeBar": False}
 tab_card = {'height': '100%'}
 main_config = {
@@ -33,7 +32,6 @@ try:
 except:
     df_main = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)', 'DATA'])
 
-# Listas
 anos_disp = sorted(df_main['ANO'].unique()) if not df_main.empty else []
 regioes_disp = df_main['REGIÃO'].unique() if not df_main.empty else []
 estados_disp = df_main['ESTADO'].unique() if not df_main.empty else []
@@ -43,7 +41,6 @@ val_regiao = regioes_disp[0] if len(regioes_disp) > 0 else ""
 val_est1 = estados_disp[0] if len(estados_disp) > 0 else ""
 val_est2 = estados_disp[1] if len(estados_disp) > 1 else ""
 
-
 # =========  Layout =========== #
 app.layout = dbc.Container([
     dbc.Row([
@@ -51,7 +48,7 @@ app.layout = dbc.Container([
             dbc.Card([
                 dbc.CardBody([
                     html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
-                    html.P("Ordem Alfabética (Fixo)"), # Mudei o título para você confirmar
+                    html.P("Barras Laranjas (Sem Escorrer)"), 
                     ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
                     dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
                 ])
@@ -101,7 +98,7 @@ app.layout = dbc.Container([
     ], className='g-2 my-2')
 ], fluid=True, style={'min-height': '100vh'})
 
-# ======== Callbacks (MUDANÇA DE ORDEM AQUI) ========== #
+# ======== Callbacks (ATENÇÃO: COPIE ATÉ O FINAL!) ========== #
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
@@ -126,12 +123,13 @@ def graph1(ano, regiao, toggle):
     
     df_filtered = df_main[df_main.ANO == str(ano)]
     
-    # AQUI MUDOU: Ordena pelo NOME da região/estado, e não pelo preço.
+    # ORDENAÇÃO POR NOME (A-Z) E NÃO POR PREÇO
     dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
     dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('ESTADO', ascending=False)
 
-    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
-    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
+    # MUDANÇA DE COR PARA LARANJA (color_discrete_sequence=['orange'])
+    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
+    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
     
     for fig in [fig1, fig2]:
         fig.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
