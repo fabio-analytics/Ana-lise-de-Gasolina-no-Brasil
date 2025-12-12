@@ -29,7 +29,7 @@ main_config = {
 # ===== Carregamento ====== #
 try:
     df_main = pd.read_parquet("data_gas_otimizado.parquet")
-    # Voltamos a carregar TUDO, já que o problema não era peso
+    # Carrega tudo normalmente
     df_main = df_main.sort_values(by='DATA', ascending=True)
 except:
     df_main = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)', 'DATA'])
@@ -50,7 +50,8 @@ app.layout = dbc.Container([
             dbc.Card([
                 dbc.CardBody([
                     html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
-                    html.P("Visual MISTURADO (Sem Escada)"), 
+                    # Mudei o título para VISUAL MISTURADO
+                    html.P("Visual MISTURADO (Igual ao Teste)"), 
                     ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
                     dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
                 ])
@@ -100,7 +101,7 @@ app.layout = dbc.Container([
     ], className='g-2 my-2')
 ], fluid=True)
 
-# ======== Callbacks (ANTI-ESCADA) ========== #
+# ======== Callbacks (ANTI-ESCADA / BAGUNÇADO) ========== #
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
@@ -125,16 +126,19 @@ def graph1(ano, regiao, toggle):
     
     df_filtered = df_main[df_main.ANO == str(ano)]
     
-    # NÃO ORDENAMOS POR PREÇO! Deixamos a ordem natural (alfabética ou aleatória)
-    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
-    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
+    # === A GRANDE MUDANÇA ESTÁ AQUI ===
+    # Antes estava: .sort_values('VALOR REVENDA (R$/L)')  <-- ISSO CRIAVA A ESCADA/ESCORRIMENTO
+    # Agora está:   .sort_values('REGIÃO') ou 'ESTADO'    <-- ISSO MISTURA AS BARRAS
+    
+    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
+    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('ESTADO', ascending=False)
 
     fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
     fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
     
-    # FORÇA BRUTA: Obriga o gráfico a usar ordem alfabética no Eixo Y
-    fig1.update_layout(yaxis={'categoryorder':'category descending'})
-    fig2.update_layout(yaxis={'categoryorder':'category descending'})
+    # Trava a ordem do eixo Y para obedecer o alfabeto, não o valor
+    fig1.update_yaxes(categoryorder='category ascending')
+    fig2.update_yaxes(categoryorder='category ascending')
 
     for fig in [fig1, fig2]:
         fig.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
