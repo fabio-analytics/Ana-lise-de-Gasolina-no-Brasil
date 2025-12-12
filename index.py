@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from dash_bootstrap_templates import ThemeSwitchAIO
+import gc # Coletor de lixo para limpar memória
 
 # ============ Configurações Iniciais ============ #
 template_theme1 = "minty"
@@ -16,7 +17,7 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4
 app = dash.Dash(__name__, external_stylesheets=[url_theme1, dbc_css])
 server = app.server
 
-# TRAVAMENTO TOTAL
+# Configurações de travamento visual
 config_travada = {"staticPlot": True, "displayModeBar": False}
 tab_card = {'height': '100%'}
 main_config = {
@@ -26,22 +27,47 @@ main_config = {
     "margin": {"l":0, "r":0, "t":10, "b":0}
 }
 
-# ===== Carregamento ====== #
+# ===== CARREGAMENTO INTELIGENTE (RESUMO) ====== #
 try:
-    df_main = pd.read_parquet("data_gas_otimizado.parquet")
-    # Carrega tudo normalmente
-    df_main = df_main.sort_values(by='DATA', ascending=True)
-except:
-    df_main = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)', 'DATA'])
+    print("Lendo dados...")
+    df_raw = pd.read_parquet("data_gas_otimizado.parquet")
+    
+    # --- TRUQUE DE MESTRE: CRIAR RESUMOS E DELETAR O PESADO ---
+    
+    # 1. Resumo para os Gráficos de Barra (Muito leve)
+    # Agrupa por Ano, Região e Estado de uma vez só
+    df_resumo = df_raw.groupby(['ANO', 'REGIÃO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
+    
+    # 2. Resumo para Máximos e Mínimos (Levíssimo)
+    df_maxmin = df_raw.groupby(['ANO'])['VALOR REVENDA (R$/L)'].agg(['max', 'min']).reset_index()
+    
+    # 3. Resumo para Gráfico de Linha (Só média mensal para não pesar)
+    # Cria uma coluna Mês/Ano para agrupar e reduzir pontos
+    df_raw['DATA'] = pd.to_datetime(df_raw['DATA'])
+    df_raw['MES_ANO'] = df_raw['DATA'].dt.to_period('M').astype(str)
+    df_linha = df_raw.groupby(['MES_ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
+    
+    # 4. JOGA FORA O ARQUIVO PESADO DA MEMÓRIA
+    del df_raw
+    gc.collect() # Faxina na memória RAM
+    print("Dados pesados deletados. Rodando apenas com resumos.")
 
-anos_disp = sorted(df_main['ANO'].unique()) if not df_main.empty else []
-regioes_disp = df_main['REGIÃO'].unique() if not df_main.empty else []
-estados_disp = df_main['ESTADO'].unique() if not df_main.empty else []
+except Exception as e:
+    print(f"Erro: {e}")
+    df_resumo = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)'])
+    df_maxmin = pd.DataFrame(columns=['ANO', 'max', 'min'])
+    df_linha = pd.DataFrame(columns=['MES_ANO', 'ESTADO', 'VALOR REVENDA (R$/L)'])
+
+# Listas para filtros (usando o resumo leve)
+anos_disp = sorted(df_resumo['ANO'].unique()) if not df_resumo.empty else []
+regioes_disp = df_resumo['REGIÃO'].unique() if not df_resumo.empty else []
+estados_disp = df_resumo['ESTADO'].unique() if not df_resumo.empty else []
 
 val_ano = anos_disp[0] if len(anos_disp) > 0 else ""
 val_regiao = regioes_disp[0] if len(regioes_disp) > 0 else ""
 val_est1 = estados_disp[0] if len(estados_disp) > 0 else ""
 val_est2 = estados_disp[1] if len(estados_disp) > 1 else ""
+
 
 # =========  Layout =========== #
 app.layout = dbc.Container([
@@ -50,8 +76,7 @@ app.layout = dbc.Container([
             dbc.Card([
                 dbc.CardBody([
                     html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
-                    # Mudei o título para VISUAL MISTURADO
-                    html.P("Visual MISTURADO (Igual ao Teste)"), 
+                    html.P("Modo Ultra Leve (Resumido)"), # TÍTULO NOVO
                     ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
                     dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
                 ])
@@ -80,7 +105,7 @@ app.layout = dbc.Container([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H5('Histórico por Estado'),
+                    html.H5('Histórico por Estado (Mensal)'),
                     dcc.Dropdown(id="select_estados0", value=[val_est1, val_est2], multi=True, options=[{"label": x, "value": x} for x in estados_disp]),
                     dcc.Graph(id='animation_graph', config=config_travada)
                 ])
@@ -101,18 +126,17 @@ app.layout = dbc.Container([
     ], className='g-2 my-2')
 ], fluid=True)
 
-# ======== Callbacks (ANTI-ESCADA / BAGUNÇADO) ========== #
+# ======== Callbacks (Usando apenas os RESUMOS) ========== #
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
 )
 def func(toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
-    max_val = df_main.groupby(['ANO'])['VALOR REVENDA (R$/L)'].max()
-    min_val = df_main.groupby(['ANO'])['VALOR REVENDA (R$/L)'].min()
-    final_df = pd.concat([max_val, min_val], axis=1)
-    fig = px.line(final_df, template=template)
+    if df_maxmin.empty: return go.Figure()
+    
+    # Usa a tabelinha pronta de max/min (instantâneo)
+    fig = px.line(df_maxmin, x='ANO', y=['max', 'min'], template=template)
     fig.update_layout(main_config, height=150, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
     return fig
 
@@ -122,21 +146,18 @@ def func(toggle):
 )
 def graph1(ano, regiao, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure(), go.Figure()
+    if df_resumo.empty: return go.Figure(), go.Figure()
     
-    df_filtered = df_main[df_main.ANO == str(ano)]
+    # Filtra direto no resumo (super rápido)
+    df_filtered = df_resumo[df_resumo.ANO == str(ano)]
     
-    # === A GRANDE MUDANÇA ESTÁ AQUI ===
-    # Antes estava: .sort_values('VALOR REVENDA (R$/L)')  <-- ISSO CRIAVA A ESCADA/ESCORRIMENTO
-    # Agora está:   .sort_values('REGIÃO') ou 'ESTADO'    <-- ISSO MISTURA AS BARRAS
-    
-    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
-    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('ESTADO', ascending=False)
+    dff_regiao = df_filtered.groupby(['REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
+    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].sort_values('ESTADO', ascending=False)
 
-    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
-    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
+    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
+    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
     
-    # Trava a ordem do eixo Y para obedecer o alfabeto, não o valor
+    # Força ordem alfabética para não escorrer
     fig1.update_yaxes(categoryorder='category ascending')
     fig2.update_yaxes(categoryorder='category ascending')
 
@@ -152,10 +173,12 @@ def graph1(ano, regiao, toggle):
 )
 def animation_graph(estados, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
+    if df_linha.empty: return go.Figure()
     if not isinstance(estados, list): estados = [estados]
-    mask = df_main.ESTADO.isin(estados)
-    fig = px.line(df_main[mask], x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
+    
+    mask = df_linha.ESTADO.isin(estados)
+    # Usa o resumo mensal (df_linha) em vez do diário
+    fig = px.line(df_linha[mask], x='MES_ANO', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
     fig.update_layout(main_config, height=350, xaxis_title=None, transition={'duration': 0})
     return fig
 
@@ -165,9 +188,10 @@ def animation_graph(estados, toggle):
 )
 def direct_comparison(est1, est2, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
-    df_final = df_main[df_main.ESTADO.isin([est1, est2])]
-    fig = px.line(df_final, x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
+    if df_linha.empty: return go.Figure()
+    
+    df_final = df_linha[df_linha.ESTADO.isin([est1, est2])]
+    fig = px.line(df_final, x='MES_ANO', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
     fig.update_layout(main_config, height=350, xaxis_title=None, transition={'duration': 0})
     return fig
 
