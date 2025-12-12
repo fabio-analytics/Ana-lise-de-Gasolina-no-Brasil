@@ -2,11 +2,10 @@ import dash
 from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
 from dash_bootstrap_templates import ThemeSwitchAIO
 
-# ============ Configurações Iniciais ============ #
+# Configurações
 template_theme1 = "minty"
 template_theme2 = "slate"
 url_theme1 = dbc.themes.MINTY
@@ -16,128 +15,91 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4
 app = dash.Dash(__name__, external_stylesheets=[url_theme1, dbc_css])
 server = app.server
 
-# Configuração visual
+# Configurações Travadas
 config_travada = {"staticPlot": True, "displayModeBar": False}
+main_config = {"hovermode": False, "dragmode": False, "margin": {"l":0, "r":0, "t":10, "b":0}, "legend": {"yanchor":"top", "y":0.9, "xanchor":"left", "x":0.1, "font":{"color":"white"}, "bgcolor": "rgba(0,0,0,0.5)"}}
 tab_card = {'height': '100%'}
-main_config = {
-    "hovermode": "x unified",
-    "legend": {"yanchor":"top", "y":0.9, "xanchor":"left", "x":0.1, "title": {"text": None}, "font" :{"color":"white"}, "bgcolor": "rgba(0,0,0,0.5)"},
-    "margin": {"l":0, "r":0, "t":10, "b":0}
-}
 
-# ===== Carregamento OTIMIZADO (A Solução Mágica) ====== #
-# Lista exata das colunas que usamos. O resto é ignorado na leitura.
-colunas_uteis = [
-    ' DATA INICIAL', ' DATA FINAL', 'PREÇO MÉDIO REVENDA', 
-    'PRODUTO', 'ESTADO', 'REGIÃO'
-]
-
+# ===== CARREGAMENTO DOS RESUMOS (Instantâneo) ====== #
 try:
-    # usecols=colunas_uteis -> A mágica acontece aqui! Economiza muita memória.
-    df_main = pd.read_csv("data_gas.csv", usecols=colunas_uteis)
+    df_barras = pd.read_csv("resumo_barras.csv")
+    df_maxmin = pd.read_csv("resumo_maxmin.csv")
+    df_linha = pd.read_csv("resumo_linha.csv")
     
-    # Filtra gasolina direto, jogando fora o resto das linhas
-    df_main = df_main[df_main['PRODUTO'] == 'GASOLINA COMUM']
-    
-    # Tratamento
-    df_main.rename(columns={' DATA INICIAL': 'DATA INICIAL', ' DATA FINAL': 'DATA FINAL'}, inplace=True)
-    df_main['DATA INICIAL'] = pd.to_datetime(df_main['DATA INICIAL'], errors='coerce')
-    df_main['DATA FINAL'] = pd.to_datetime(df_main['DATA FINAL'], errors='coerce')
-    df_main['DATA MEDIA'] = ((df_main['DATA FINAL'] - df_main['DATA INICIAL'])/2) + df_main['DATA INICIAL']
-    df_main = df_main.sort_values(by='DATA MEDIA', ascending=True)
-    df_main.rename(columns = {'DATA MEDIA':'DATA'}, inplace = True)
-    df_main.rename(columns = {'PREÇO MÉDIO REVENDA': 'VALOR REVENDA (R$/L)'}, inplace=True)
-    df_main["ANO"] = df_main["DATA"].apply(lambda x: str(x.year) if pd.notnull(x) else "")
-    
-    # Converte para números leves
-    df_main['VALOR REVENDA (R$/L)'] = pd.to_numeric(df_main['VALOR REVENDA (R$/L)'], errors='coerce')
-    
+    # Ajustes de tipo
+    df_barras['ANO'] = df_barras['ANO'].astype(str)
+    df_maxmin['ANO'] = df_maxmin['ANO'].astype(str)
 except Exception as e:
-    print(f"Erro ao ler CSV: {e}")
-    df_main = pd.DataFrame() # Previne crash total
+    print(f"Erro ao ler resumos: {e}")
+    df_barras = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)'])
+    df_maxmin = pd.DataFrame(columns=['ANO', 'max', 'min'])
+    df_linha = pd.DataFrame()
 
-# Listas para filtros (proteção contra vazio)
-anos_disp = sorted(df_main['ANO'].unique()) if not df_main.empty else []
-regioes_disp = df_main['REGIÃO'].unique() if not df_main.empty else []
-estados_disp = df_main['ESTADO'].unique() if not df_main.empty else []
+# Listas
+anos_disp = sorted(df_barras['ANO'].unique()) if not df_barras.empty else []
+regioes_disp = df_barras['REGIÃO'].unique() if not df_barras.empty else []
+estados_disp = df_barras['ESTADO'].unique() if not df_barras.empty else []
 
-val_ano = anos_disp[0] if len(anos_disp) > 0 else ""
-val_regiao = regioes_disp[0] if len(regioes_disp) > 0 else ""
-val_est1 = estados_disp[0] if len(estados_disp) > 0 else ""
+val_ano = anos_disp[0] if anos_disp else ""
+val_regiao = regioes_disp[0] if regioes_disp else ""
+val_est1 = estados_disp[0] if estados_disp else ""
 val_est2 = estados_disp[1] if len(estados_disp) > 1 else ""
 
-# =========  Layout (Real) =========== #
+# Layout
 app.layout = dbc.Container([
-    # Topo
     dbc.Row([
         dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("Gasolina Dashboard (LEVE)", style={"font-weight": "bold"}),
-                    html.P("Agora com dados reais otimizados!"),
-                    ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
-                    dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
-                ])
-            ], style=tab_card)
+            dbc.Card([dbc.CardBody([
+                html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
+                html.P("Modo Nuclear (Pré-Carregado)"),
+                ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
+                dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
+            ])], style=tab_card)
         ], sm=12, md=3),
         dbc.Col([
             dbc.Card([dbc.CardBody([html.H5('Máximos e Mínimos'), dcc.Graph(id='static-maxmin', config=config_travada)])], style=tab_card)
         ], sm=12, md=3),
         dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    dbc.Row([
-                        dbc.Col([html.H6('Ano:'), dcc.Dropdown(id="select_ano", value=val_ano, options=[{"label": x, "value": x} for x in anos_disp], clearable=False)], sm=6),
-                        dbc.Col([html.H6('Região:'), dcc.Dropdown(id="select_regiao", value=val_regiao, options=[{"label": x, "value": x} for x in regioes_disp], clearable=False)], sm=6)
-                    ]),
-                    dbc.Row([
-                        dbc.Col([dcc.Graph(id='regiaobar_graph', config=config_travada)], sm=12, md=6),
-                        dbc.Col([dcc.Graph(id='estadobar_graph', config=config_travada)], sm=12, md=6)    
-                    ])
+            dbc.Card([dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([html.H6('Ano:'), dcc.Dropdown(id="select_ano", value=val_ano, options=[{"label": x, "value": x} for x in anos_disp], clearable=False)], sm=6),
+                    dbc.Col([html.H6('Região:'), dcc.Dropdown(id="select_regiao", value=val_regiao, options=[{"label": x, "value": x} for x in regioes_disp], clearable=False)], sm=6)
+                ]),
+                dbc.Row([
+                    dbc.Col([dcc.Graph(id='regiaobar_graph', config=config_travada)], sm=12, md=6),
+                    dbc.Col([dcc.Graph(id='estadobar_graph', config=config_travada)], sm=12, md=6)
                 ])
-            ], style=tab_card)
+            ])], style=tab_card)
         ], sm=12, md=6)
     ], className='g-2 my-2'),
 
-    # Gráficos Linha
     dbc.Row([
         dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H5('Histórico por Estado'),
-                    dcc.Dropdown(id="select_estados0", value=[val_est1, val_est2], multi=True, options=[{"label": x, "value": x} for x in estados_disp]),
-                    dcc.Graph(id='animation_graph', config=config_travada)
-                ])
-            ], style=tab_card)
+            dbc.Card([dbc.CardBody([
+                html.H5('Histórico por Estado'),
+                dcc.Dropdown(id="select_estados0", value=[val_est1, val_est2], multi=True, options=[{"label": x, "value": x} for x in estados_disp]),
+                dcc.Graph(id='animation_graph', config=config_travada)
+            ])], style=tab_card)
         ], md=8),
         dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H5('Comparação Direta'),
-                    dbc.Row([
-                        dbc.Col([dcc.Dropdown(id="select_estado1", value=val_est1, options=[{"label": x, "value": x} for x in estados_disp], clearable=False)]),
-                        dbc.Col([dcc.Dropdown(id="select_estado2", value=val_est2, options=[{"label": x, "value": x} for x in estados_disp], clearable=False)])
-                    ]),
-                    dcc.Graph(id='direct_comparison_graph', config=config_travada)
-                ])
-            ], style=tab_card)
+            dbc.Card([dbc.CardBody([
+                html.H5('Comparação Direta'),
+                dbc.Row([
+                    dbc.Col([dcc.Dropdown(id="select_estado1", value=val_est1, options=[{"label": x, "value": x} for x in estados_disp], clearable=False)]),
+                    dbc.Col([dcc.Dropdown(id="select_estado2", value=val_est2, options=[{"label": x, "value": x} for x in estados_disp], clearable=False)])
+                ]),
+                dcc.Graph(id='direct_comparison_graph', config=config_travada)
+            ])], style=tab_card)
         ], md=4)
     ], className='g-2 my-2')
 ], fluid=True)
 
-# ======== Callbacks (Mesma Lógica) ========== #
-@app.callback(
-    Output('static-maxmin', 'figure'),
-    [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
-)
+# Callbacks
+@app.callback(Output('static-maxmin', 'figure'), [Input(ThemeSwitchAIO.ids.switch("theme"), "value")])
 def func(toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
-    max_val = df_main.groupby(['ANO'])['VALOR REVENDA (R$/L)'].max()
-    min_val = df_main.groupby(['ANO'])['VALOR REVENDA (R$/L)'].min()
-    final_df = pd.concat([max_val, min_val], axis=1)
-    final_df.columns = ['Máximo', 'Mínimo']
-    fig = px.line(final_df, x=final_df.index, y=final_df.columns, template=template)
+    if df_maxmin.empty: return {}
+    fig = px.line(df_maxmin, x='ANO', y=['max', 'min'], template=template)
     fig.update_layout(main_config, height=150, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
     return fig
 
@@ -147,47 +109,40 @@ def func(toggle):
 )
 def graph1(ano, regiao, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure(), go.Figure()
+    if df_barras.empty: return {}, {}
     
-    df_filtered = df_main[df_main.ANO == str(ano)]
-    
-    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
-    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
+    df_filt = df_barras[df_barras['ANO'] == str(ano)]
+    dff_regiao = df_filt.groupby(['REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('REGIÃO', ascending=False)
+    dff_estado = df_filt[df_filt['REGIÃO'] == regiao].sort_values('ESTADO', ascending=False)
 
-    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
-    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
+    fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
+    fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template, color_discrete_sequence=['orange'])
     
+    fig1.update_yaxes(categoryorder='category ascending')
+    fig2.update_yaxes(categoryorder='category ascending')
+
     for fig in [fig1, fig2]:
         fig.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
         fig.update_xaxes(showticklabels=False)
         fig.update_yaxes(showticklabels=False)
-        
     return fig1, fig2
 
-@app.callback(
-    Output('animation_graph', 'figure'),
-    [Input('select_estados0', 'value'), Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
-)
+@app.callback(Output('animation_graph', 'figure'), [Input('select_estados0', 'value'), Input(ThemeSwitchAIO.ids.switch("theme"), "value")])
 def animation_graph(estados, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
+    if df_linha.empty: return {}
     if not isinstance(estados, list): estados = [estados]
-    
-    mask = df_main.ESTADO.isin(estados)
-    fig = px.line(df_main[mask], x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
+    mask = df_linha.ESTADO.isin(estados)
+    fig = px.line(df_linha[mask], x='MES_ANO', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
     fig.update_layout(main_config, height=350, xaxis_title=None, transition={'duration': 0})
     return fig
 
-@app.callback(
-    Output('direct_comparison_graph', 'figure'),
-    [Input('select_estado1', 'value'), Input('select_estado2', 'value'), Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
-)
+@app.callback(Output('direct_comparison_graph', 'figure'), [Input('select_estado1', 'value'), Input('select_estado2', 'value'), Input(ThemeSwitchAIO.ids.switch("theme"), "value")])
 def direct_comparison(est1, est2, toggle):
     template = template_theme1 if toggle else template_theme2
-    if df_main.empty: return go.Figure()
-    
-    df_final = df_main[df_main.ESTADO.isin([est1, est2])]
-    fig = px.line(df_final, x='DATA', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
+    if df_linha.empty: return {}
+    df_final = df_linha[df_linha.ESTADO.isin([est1, est2])]
+    fig = px.line(df_final, x='MES_ANO', y='VALOR REVENDA (R$/L)', color='ESTADO', template=template)
     fig.update_layout(main_config, height=350, xaxis_title=None, transition={'duration': 0})
     return fig
 
