@@ -16,7 +16,7 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4
 app = dash.Dash(__name__, external_stylesheets=[url_theme1, dbc_css])
 server = app.server
 
-# Configurações de travamento
+# TRAVAMENTO TOTAL
 config_travada = {"staticPlot": True, "displayModeBar": False}
 tab_card = {'height': '100%'}
 main_config = {
@@ -26,20 +26,14 @@ main_config = {
     "margin": {"l":0, "r":0, "t":10, "b":0}
 }
 
-# ===== Carregamento COM FILTRO RADICAL ====== #
+# ===== Carregamento ====== #
 try:
     df_main = pd.read_parquet("data_gas_otimizado.parquet")
-    
-    # === AQUI ESTÁ O TRUQUE ===
-    # Vamos ficar SÓ com 2021 para deixar leve como os dados fictícios
-    df_main = df_main[df_main['ANO'] == '2021'] 
-    # ==========================
-    
+    # Voltamos a carregar TUDO, já que o problema não era peso
     df_main = df_main.sort_values(by='DATA', ascending=True)
 except:
     df_main = pd.DataFrame(columns=['ANO', 'REGIÃO', 'ESTADO', 'VALOR REVENDA (R$/L)', 'DATA'])
 
-# Listas
 anos_disp = sorted(df_main['ANO'].unique()) if not df_main.empty else []
 regioes_disp = df_main['REGIÃO'].unique() if not df_main.empty else []
 estados_disp = df_main['ESTADO'].unique() if not df_main.empty else []
@@ -56,7 +50,7 @@ app.layout = dbc.Container([
             dbc.Card([
                 dbc.CardBody([
                     html.H4("Gasolina Dashboard", style={"font-weight": "bold"}),
-                    html.P("Teste Leve (Só 2021)"), # Título para confirmar
+                    html.P("Visual MISTURADO (Sem Escada)"), 
                     ThemeSwitchAIO(aio_id="theme", themes=[url_theme1, url_theme2]),
                     dbc.Button("Portfólio", href="https://dashboard-fabio-gasolina.onrender.com", target="_blank", size="sm", style={'margin-top': '5px'})
                 ])
@@ -106,7 +100,7 @@ app.layout = dbc.Container([
     ], className='g-2 my-2')
 ], fluid=True)
 
-# ======== Callbacks ========== #
+# ======== Callbacks (ANTI-ESCADA) ========== #
 @app.callback(
     Output('static-maxmin', 'figure'),
     [Input(ThemeSwitchAIO.ids.switch("theme"), "value")]
@@ -129,16 +123,19 @@ def graph1(ano, regiao, toggle):
     template = template_theme1 if toggle else template_theme2
     if df_main.empty: return go.Figure(), go.Figure()
     
-    # Filtro simples, pois df_main já só tem 2021
-    df_filtered = df_main 
+    df_filtered = df_main[df_main.ANO == str(ano)]
     
-    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
-    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index().sort_values('VALOR REVENDA (R$/L)')
+    # NÃO ORDENAMOS POR PREÇO! Deixamos a ordem natural (alfabética ou aleatória)
+    dff_regiao = df_filtered.groupby(['ANO', 'REGIÃO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
+    dff_estado = df_filtered[df_filtered.REGIÃO == regiao].groupby(['ANO', 'ESTADO'])['VALOR REVENDA (R$/L)'].mean().reset_index()
 
-    # Voltei para Barras Horizontais (Deitadas) para ver se para de escorrer só pelo peso
     fig1 = px.bar(dff_regiao, x='VALOR REVENDA (R$/L)', y='REGIÃO', orientation='h', text_auto='.2f', template=template)
     fig2 = px.bar(dff_estado, x='VALOR REVENDA (R$/L)', y='ESTADO', orientation='h', text_auto='.2f', template=template)
     
+    # FORÇA BRUTA: Obriga o gráfico a usar ordem alfabética no Eixo Y
+    fig1.update_layout(yaxis={'categoryorder':'category descending'})
+    fig2.update_layout(yaxis={'categoryorder':'category descending'})
+
     for fig in [fig1, fig2]:
         fig.update_layout(main_config, height=140, xaxis_title=None, yaxis_title=None, transition={'duration': 0})
         fig.update_xaxes(showticklabels=False)
