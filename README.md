@@ -16,11 +16,11 @@ Dashboard para análise dos preços da gasolina no Brasil (2004-2021) feito com 
 ## 💻 Projeto
 
 
-<a href = "https://www.visiondatapro.com/"><img src="https://img.shields.io/badge/ASIMOV-Aulas%20do%20projeto-lightgrey" target="_blank"></a> 
+<a href = "https://www.visiondatapro.com/"><img src="https://img.shields.io/badge/-Aulas%20do%20projeto-lightgrey" target="_blank"></a> 
 
 Para ver o projeto em tempo real:
 
-<a href = "[https://gasprices-dash-asimov.herokuapp.com](https://www.visiondatapro.com)/"><img src="https://img.shields.io/badge/ASIMOV-Projeto%20em%20tempo%20real-lightgrey" target="_blank"></a> 
+<a href = "[https://gasprices-dash-.herokuapp.com](https://www.visiondatapro.com)/"><img src="https://img.shields.io/badge/-Projeto%20em%20tempo%20real-lightgrey" target="_blank"></a> 
 
 ## 👨‍💻 Tecnologias Utilizadas
 
