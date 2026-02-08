@@ -20,7 +20,7 @@ Dashboard para análise dos preços da gasolina no Brasil (2004-2021) feito com 
 
 Para ver o projeto em tempo real:
 
-<a href = "https://gasprices-dash-asimov.herokuapp.com/"><img src="https://img.shields.io/badge/ASIMOV-Projeto%20em%20tempo%20real-lightgrey" target="_blank"></a> 
+<a href = "[https://gasprices-dash-asimov.herokuapp.com](https://www.visiondatapro.com)/"><img src="https://img.shields.io/badge/ASIMOV-Projeto%20em%20tempo%20real-lightgrey" target="_blank"></a> 
 
 ## 👨‍💻 Tecnologias Utilizadas
 
@@ -40,9 +40,6 @@ Utilizando apenas **PYTHON** e as bibliotecas:
 <a href = "https://www.visiondatapro.com/"><img src="https://img.shields.io/badge/ASIMOV-Saiba%20Mais-lightgrey" target="_blank"></a> 
 
 
-
-[![Whatsapp Badge]()](https://wa.me/5551981830833)
-[![Instagram Badge](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/asimov.academy/)
 
 
 ✉ fabiobook23@gmail.com
